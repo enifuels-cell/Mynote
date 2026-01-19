@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const mongoose = require('mongoose');
+const { sequelize } = require('./config/database');
 
 dotenv.config();
 
@@ -30,12 +30,13 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Mynote API is running' });
 });
 
-// MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/mynote';
-
-mongoose.connect(MONGODB_URI)
-  .then(() => console.log('MongoDB connected successfully'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+// MySQL connection
+sequelize.authenticate()
+  .then(() => {
+    console.log('MySQL connected successfully');
+    console.log('Using existing database tables from Laravel migrations');
+  })
+  .catch((err) => console.error('MySQL connection error:', err));
 
 const PORT = process.env.PORT || 5000;
 

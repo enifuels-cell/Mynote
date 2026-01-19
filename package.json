@@ -23,14 +23,17 @@
   "dependencies": {
     "@simplewebauthn/server": "^13.2.2",
     "axios": "^1.13.2",
+    "bcryptjs": "^3.0.3",
     "concurrently": "^9.2.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "mongoose": "^9.1.2",
     "multer": "^2.0.2",
+    "mysql2": "^3.16.1",
     "nodemailer": "^7.0.12",
     "nodemon": "^3.1.11",
-    "openai": "^6.16.0"
+    "openai": "^6.16.0",
+    "sequelize": "^6.37.7"
   }
 }

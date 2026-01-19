@@ -8,16 +8,24 @@ router.post('/register', async (req, res) => {
   try {
     const { email, username, passwordHash } = req.body;
     
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const existingUser = await User.findOne({ 
+      where: {
+        [require('sequelize').Op.or]: [{ email }, { username }]
+      }
+    });
+    
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
     
-    const user = new User({ email, username, passwordHash });
-    await user.save();
+    const user = await User.create({ 
+      email, 
+      username, 
+      password: passwordHash 
+    });
     
     res.status(201).json({ 
-      userId: user._id, 
+      userId: user.id, 
       username: user.username,
       email: user.email 
     });
@@ -30,22 +38,60 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { username, passwordHash } = req.body;
+    const bcrypt = require('bcryptjs');
     
-    const user = await User.findOne({ username, passwordHash });
+    console.log('Login attempt for username:', username);
+    
+    const user = await User.findOne({ 
+      where: { username }
+    });
+    
     if (!user) {
+      console.log('User not found');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
-    user.lastLogin = new Date();
+    console.log('User found, comparing passwords');
+    
+    // Compare password - handle both base64 (old) and plain password
+    let passwordMatch = false;
+    try {
+      // Try bcrypt comparison first
+      const decodedPassword = Buffer.from(passwordHash, 'base64').toString();
+      console.log('Decoded password:', decodedPassword);
+      passwordMatch = await bcrypt.compare(decodedPassword, user.password);
+      console.log('Bcrypt compare result (decoded):', passwordMatch);
+      
+      if (!passwordMatch) {
+        // Try direct comparison as fallback
+        passwordMatch = await bcrypt.compare(passwordHash, user.password);
+        console.log('Bcrypt compare result (direct):', passwordMatch);
+      }
+    } catch (err) {
+      console.log('Bcrypt error, trying direct match:', err.message);
+      passwordMatch = user.password === passwordHash;
+    }
+    
+    if (!passwordMatch) {
+      console.log('Password mismatch');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    console.log('Login successful');
+    user.last_login = new Date();
     await user.save();
     
     res.json({ 
-      userId: user._id, 
+      userId: user.id, 
       username: user.username,
       email: user.email,
-      preferences: user.preferences
+      theme: user.theme,
+      default_view: user.default_view,
+      ai_auto_organize: user.ai_auto_organize,
+      auto_sync: user.auto_sync
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(400).json({ error: error.message });
   }
 });

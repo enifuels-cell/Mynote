@@ -117,6 +117,12 @@ class SyncService {
 
   async getNotesOffline(userId) {
     try {
+      // Validate userId
+      if (!userId || (typeof userId !== 'string' && typeof userId !== 'number')) {
+        console.warn('Invalid userId provided to getNotesOffline:', userId);
+        return [];
+      }
+      
       const notes = await db.notes
         .where('userId')
         .equals(userId)

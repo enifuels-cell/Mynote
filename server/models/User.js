@@ -1,71 +1,66 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const UserSchema = new mongoose.Schema({
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   email: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    trim: true,
-    lowercase: true
-  },
-  username: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-  },
-  passwordHash: {
-    type: String,
-    required: true
-  },
-  biometricCredentials: [{
-    credentialID: Buffer,
-    publicKey: Buffer,
-    counter: Number,
-    deviceType: String,
-    backedUp: Boolean,
-    transports: [String]
-  }],
-  preferences: {
-    theme: {
-      type: String,
-      default: 'light',
-      enum: ['light', 'dark', 'auto']
-    },
-    defaultView: {
-      type: String,
-      default: 'grid',
-      enum: ['grid', 'list', 'timeline']
-    },
-    aiAutoOrganize: {
-      type: Boolean,
-      default: true
-    },
-    autoSync: {
-      type: Boolean,
-      default: true
+    validate: {
+      isEmail: true
     }
   },
-  devices: [{
-    deviceId: String,
-    deviceName: String,
-    lastSynced: Date
-  }],
-  clipboardHistory: [{
-    content: String,
-    deviceId: String,
-    timestamp: Date
-  }],
-  isEmailVerified: {
-    type: Boolean,
-    default: false
+  username: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true
   },
-  lastLogin: {
-    type: Date,
-    default: Date.now
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    field: 'password'
+  },
+  theme: {
+    type: DataTypes.ENUM('light', 'dark', 'auto'),
+    defaultValue: 'light'
+  },
+  default_view: {
+    type: DataTypes.ENUM('grid', 'list', 'timeline'),
+    defaultValue: 'grid'
+  },
+  ai_auto_organize: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
+  auto_sync: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
+  is_email_verified: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  email_verified_at: {
+    type: DataTypes.DATE,
+    defaultValue: null
+  },
+  last_login: {
+    type: DataTypes.DATE,
+    defaultValue: null
+  },
+  remember_token: {
+    type: DataTypes.STRING(100),
+    defaultValue: null
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  tableName: 'users',
+  underscored: true
 });
 
-module.exports = mongoose.model('User', UserSchema);
+module.exports = User;
