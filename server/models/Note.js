@@ -1,101 +1,97 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const NoteSchema = new mongoose.Schema({
+const Note = sequelize.define('Note', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  user_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
   title: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   content: {
-    type: String,
-    default: ''
+    type: DataTypes.TEXT('long'),
+    defaultValue: null
   },
-  richContent: {
-    type: Object,
-    default: {}
+  rich_content: {
+    type: DataTypes.JSON,
+    defaultValue: null
   },
-  tags: [{
-    type: String,
-    trim: true
-  }],
-  attachments: [{
-    name: String,
-    url: String,
-    type: String,
-    size: Number
-  }],
-  voiceNote: {
-    url: String,
-    duration: Number,
-    transcript: String
+  tags: {
+    type: DataTypes.JSON,
+    defaultValue: null
   },
-  aiSummary: {
-    type: String,
-    default: ''
+  ai_summary: {
+    type: DataTypes.TEXT('long'),
+    defaultValue: null
   },
-  aiTags: [{
-    type: String,
-    trim: true
-  }],
-  aiCategory: {
-    type: String,
-    default: ''
+  ai_tags: {
+    type: DataTypes.JSON,
+    defaultValue: null
   },
-  isPinned: {
-    type: Boolean,
-    default: false
+  ai_category: {
+    type: DataTypes.STRING,
+    defaultValue: null
   },
-  isArchived: {
-    type: Boolean,
-    default: false
+  is_pinned: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   },
-  isSecure: {
-    type: Boolean,
-    default: false
+  is_archived: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  is_secure: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   },
   color: {
-    type: String,
-    default: '#ffffff'
+    type: DataTypes.STRING,
+    defaultValue: '#ffffff'
   },
-  reminder: {
-    date: Date,
-    message: String,
-    isRecurring: Boolean,
-    recurringPattern: String
+  reminder_date: {
+    type: DataTypes.DATE,
+    defaultValue: null
   },
-  userId: {
-    type: String,
-    required: true,
-    index: true
+  reminder_message: {
+    type: DataTypes.STRING,
+    defaultValue: null
   },
-  lastModified: {
-    type: Date,
-    default: Date.now
+  is_reminder_recurring: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   },
-  lastSynced: {
-    type: Date,
-    default: Date.now
+  reminder_pattern: {
+    type: DataTypes.STRING,
+    defaultValue: null
   },
-  deviceId: {
-    type: String,
-    default: ''
+  device_id: {
+    type: DataTypes.STRING,
+    defaultValue: null
   },
   version: {
-    type: Number,
-    default: 1
+    type: DataTypes.INTEGER,
+    defaultValue: 1
   },
-  isDeleted: {
-    type: Boolean,
-    default: false
+  deleted_at: {
+    type: DataTypes.DATE,
+    defaultValue: null
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  tableName: 'notes',
+  underscored: true,
+  paranoid: true
 });
 
-// Indexes for efficient querying
-NoteSchema.index({ userId: 1, createdAt: -1 });
-NoteSchema.index({ userId: 1, tags: 1 });
-NoteSchema.index({ userId: 1, isDeleted: 1 });
-NoteSchema.index({ 'reminder.date': 1 });
-
-module.exports = mongoose.model('Note', NoteSchema);
+module.exports = Note;

@@ -27,6 +27,13 @@ function Dashboard() {
     try {
       setLoading(true);
       
+      // Ensure user and userId are available
+      if (!user || !user.userId) {
+        console.warn('User or userId not available');
+        setLoading(false);
+        return;
+      }
+      
       // Try to load from server first
       if (navigator.onLine) {
         const response = await notesAPI.getAll(user.userId);
@@ -41,9 +48,11 @@ function Dashboard() {
     } catch (error) {
       console.error('Error loading notes:', error);
       // Fallback to offline
-      const offlineNotes = await syncService.getNotesOffline(user.userId);
-      setNotes(offlineNotes);
-      setFilteredNotes(offlineNotes);
+      if (user && user.userId) {
+        const offlineNotes = await syncService.getNotesOffline(user.userId);
+        setNotes(offlineNotes);
+        setFilteredNotes(offlineNotes);
+      }
     } finally {
       setLoading(false);
     }
@@ -106,7 +115,9 @@ function Dashboard() {
   const getAllTags = () => {
     const tagSet = new Set();
     notes.forEach(note => {
-      note.tags.forEach(tag => tagSet.add(tag));
+      if (note.tags && Array.isArray(note.tags)) {
+        note.tags.forEach(tag => tagSet.add(tag));
+      }
     });
     return Array.from(tagSet);
   };

@@ -1,15 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const Note = require('../models/Note');
+const { Op } = require('sequelize');
 
 // Get all notes for a user
 router.get('/', async (req, res) => {
   try {
     const { userId } = req.query;
-    const notes = await Note.find({ 
-      userId, 
-      isDeleted: false 
-    }).sort({ lastModified: -1 });
+    const notes = await Note.findAll({ 
+      where: {
+        user_id: userId,
+        deleted_at: null
+      },
+      order: [['updated_at', 'DESC']]
+    });
     res.json(notes);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -19,8 +23,8 @@ router.get('/', async (req, res) => {
 // Get a single note
 router.get('/:id', async (req, res) => {
   try {
-    const note = await Note.findById(req.params.id);
-    if (!note || note.isDeleted) {
+    const note = await Note.findByPk(req.params.id);
+    if (!note || note.deleted_at) {
       return res.status(404).json({ error: 'Note not found' });
     }
     res.json(note);
@@ -32,10 +36,22 @@ router.get('/:id', async (req, res) => {
 // Create a new note
 router.post('/', async (req, res) => {
   try {
-    const note = new Note(req.body);
-    await note.save();
+    const noteData = { ...req.body };
+    
+    console.log('Received note data:', noteData);
+    
+    // Map userId to user_id if needed
+    if (noteData.userId && !noteData.user_id) {
+      noteData.user_id = noteData.userId;
+      delete noteData.userId;
+    }
+    
+    console.log('Final note data:', noteData);
+    
+    const note = await Note.create(noteData);
     res.status(201).json(note);
   } catch (error) {
+    console.error('Error creating note:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -43,16 +59,17 @@ router.post('/', async (req, res) => {
 // Update a note
 router.put('/:id', async (req, res) => {
   try {
-    const note = await Note.findById(req.params.id);
-    if (!note || note.isDeleted) {
+    const note = await Note.findByPk(req.params.id);
+    if (!note || note.deleted_at) {
       return res.status(404).json({ error: 'Note not found' });
     }
     
-    Object.assign(note, req.body);
-    note.lastModified = new Date();
-    note.version += 1;
+    await note.update({
+      ...req.body,
+      updated_at: new Date(),
+      version: note.version + 1
+    });
     
-    await note.save();
     res.json(note);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -62,14 +79,12 @@ router.put('/:id', async (req, res) => {
 // Delete a note (soft delete)
 router.delete('/:id', async (req, res) => {
   try {
-    const note = await Note.findById(req.params.id);
+    const note = await Note.findByPk(req.params.id);
     if (!note) {
       return res.status(404).json({ error: 'Note not found' });
     }
     
-    note.isDeleted = true;
-    note.lastModified = new Date();
-    await note.save();
+    await note.destroy(); // Sequelize soft delete with paranoid: true
     
     res.json({ message: 'Note deleted successfully' });
   } catch (error) {
@@ -81,15 +96,17 @@ router.delete('/:id', async (req, res) => {
 router.get('/search/query', async (req, res) => {
   try {
     const { userId, q } = req.query;
-    const notes = await Note.find({
-      userId,
-      isDeleted: false,
-      $or: [
-        { title: { $regex: q, $options: 'i' } },
-        { content: { $regex: q, $options: 'i' } },
-        { tags: { $regex: q, $options: 'i' } }
-      ]
-    }).sort({ lastModified: -1 });
+    const notes = await Note.findAll({
+      where: {
+        user_id: userId,
+        deleted_at: null,
+        [Op.or]: [
+          { title: { [Op.like]: `%${q}%` } },
+          { content: { [Op.like]: `%${q}%` } }
+        ]
+      },
+      order: [['updated_at', 'DESC']]
+    });
     res.json(notes);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -100,12 +117,21 @@ router.get('/search/query', async (req, res) => {
 router.get('/tags/:tag', async (req, res) => {
   try {
     const { userId } = req.query;
-    const notes = await Note.find({
-      userId,
-      isDeleted: false,
-      tags: req.params.tag
-    }).sort({ lastModified: -1 });
-    res.json(notes);
+    const notes = await Note.findAll({
+      where: {
+        user_id: userId,
+        deleted_at: null
+      },
+      order: [['updated_at', 'DESC']]
+    });
+    
+    // Filter by tag in JSON array
+    const filteredNotes = notes.filter(note => {
+      const tags = note.tags || [];
+      return tags.includes(req.params.tag);
+    });
+    
+    res.json(filteredNotes);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -115,18 +141,26 @@ router.get('/tags/:tag', async (req, res) => {
 router.get('/timeline/data', async (req, res) => {
   try {
     const { userId } = req.query;
-    const notes = await Note.aggregate([
-      { $match: { userId, isDeleted: false } },
-      { 
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          count: { $sum: 1 },
-          notes: { $push: '$$ROOT' }
-        }
+    const notes = await Note.findAll({
+      where: {
+        user_id: userId,
+        deleted_at: null
       },
-      { $sort: { _id: -1 } }
-    ]);
-    res.json(notes);
+      order: [['created_at', 'DESC']]
+    });
+    
+    // Group by date
+    const groupedNotes = notes.reduce((acc, note) => {
+      const date = note.created_at.toISOString().split('T')[0];
+      if (!acc[date]) {
+        acc[date] = { _id: date, count: 0, notes: [] };
+      }
+      acc[date].count++;
+      acc[date].notes.push(note);
+      return acc;
+    }, {});
+    
+    res.json(Object.values(groupedNotes));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
